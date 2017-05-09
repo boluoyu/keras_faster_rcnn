@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# this script reformat the data into correct format
 import cv2
 import numpy as np
 

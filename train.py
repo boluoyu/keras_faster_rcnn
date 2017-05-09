@@ -23,7 +23,7 @@ dataGenerator = DataGenerator()
 #fasterRcnn.saveDetector()
 #fasterRcnn.saveConv()
 #
-## step 3 fine tune rpn 
+## step 3 fine tune rpn
 #fasterRcnn.trainRpn(dataGenerator)
 #fasterRcnn.saveRpn()
 #fasterRcnn.saveConv()
@@ -34,7 +34,7 @@ dataGenerator = DataGenerator()
 #fasterRcnn.saveConv()
 #
 #
-## in test mode 
+## in test mode
 #imgs = []
 #fasterRcnn = FasterRcnn(configObject, train=False)
 #res, preview = fasterRcnn.predict(imgs, preview=True)
