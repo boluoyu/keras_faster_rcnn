@@ -40,15 +40,18 @@ class FasterRcnn:
         conv3_3 = slim.conv2d(vgg_last_conv, 512, [3, 3], scope='conv3_3')
         print("conv3_3", conv3_3.get_shape())
         feature_map = tf.nn.relu(conv3_3, name="feature_map")
+        print("feature_map", conv3_3.get_shape())
 
         #  ---- rpn reg
-        rpn_reg_conv = tf.nn.conv2d(vgg_last_conv, 36, [1,1], padding='SAME', name="rpn_reg_conv")
+        rpn_reg_conv = slim.conv2d(vgg_last_conv, 36, [1, 1], scope='rpn_reg_conv')
+        print("rpn_reg_conv", rpn_reg_conv.get_shape())
+
         #  the shape of the anchor box is [x, y, anchorId, xywh]
-        rpn_bbox_reg = tf.nn.reshape(rpn_reg_conv,[floor(width/4), floor(hieght/4), 9, 4])
+        rpn_bbox_reg = tf.reshape(rpn_reg_conv,[floor(width/4), floor(hieght/4), 9, 4])
 
         # ----- rpn class
-        rpn_cls_conv = tf.nn.conv2d(vgg_last_conv, 18, [1,1], padding='SAME', name="rpn_cls_conv")
-        rpn_bbox_cls = tf.nn.reshape(rpn_reg_conv,[floor(width/4), floor(hieght/4), 9, 2])
+        rpn_cls_conv = slim.conv2d(vgg_last_conv, 18, [1,1], padding='SAME', name="rpn_cls_conv")
+        rpn_bbox_cls = tf.reshape(rpn_reg_conv,[floor(width/4), floor(hieght/4), 9, 2])
 
         # ----- rpn poposal layer
         # This layer do the selection of the anchor, output => [None, 4]

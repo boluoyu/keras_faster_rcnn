@@ -4,14 +4,15 @@ from lib import ConfigObject
 from lib import FasterRcnn
 
 
+
 # prepare generator
 # dataGenerator = DataGenerator()
 
-configObject = ConfigObject.Config()
+#configObject = ConfigObject.Config()
 #configObject.setModelPath(rpn="",conv="", detection="")
 #
 ## create rastRcnnObject
-fasterRcnn = FasterRcnn.FasterRcnn(configObject, train=True)
+#fasterRcnn = FasterRcnn.FasterRcnn(configObject, train=True)
 #
 ## step 1 train RPN
 #fasterRcnn.initConvLayer("vgg16Path")
