@@ -2,8 +2,9 @@
 #from lib.DataGenerator import DataGenerator
 from lib import ConfigObject
 from lib import FasterRcnn
+from voc_parser import get_data
 
-
+all_imgs, classes_count, class_mappingNameToId, class_mappingIdToName = get_data("./data")
 
 # prepare generator
 # dataGenerator = DataGenerator()

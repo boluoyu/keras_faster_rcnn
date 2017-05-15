@@ -121,4 +121,4 @@ def get_data(input_path):
 			class_mappingIdToName[len(class_mappingNameToId)] = 'bg'
 	return all_imgs, classes_count, class_mappingNameToId, class_mappingIdToName
 	
-all_imgs, classes_count, class_mappingNameToId, class_mappingIdToName = get_data("./data")
+#all_imgs, classes_count, class_mappingNameToId, class_mappingIdToName = get_data("./data")
