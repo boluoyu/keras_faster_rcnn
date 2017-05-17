@@ -1,144 +1,173 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import tensorflow.contrib.slim.nets as nets
+
+from keras.applications import vgg16
+from keras import backend as K
+
 from math import floor
 import pprint
 
-def poposal_layer_func(x):
-  return []
+import matplotlib.image as mpimg
+import numpy as np
 
-def roi_pooling_layer_func(x):
-  return []
-
-class FasterRcnn:
-    def __init__(self, config, train=True):
-        self.config = config
-        self.train = train
-        self._createNetwork()
-
-    # in order to reduce complexity, one support one img
-    def _createNetwork(self):
-        ''' create the graph of the network '''
-
-        width = self.config.input_shape[0]
-        hieght = self.config.input_shape[1]
-
-        print(self.config.input_shape)
-        img = tf.placeholder("float", shape=self.config.input_shape)
+from keras.models import Sequential, Model
+from keras.layers import Dense, Dropout, Activation, Flatten,Lambda,Conv2D,Input
+from keras.layers import Convolution2D, MaxPooling2D
+from keras.utils.data_utils import get_file
+from keras.engine.topology import Layer
 
 
-        vgg, end_points = nets.vgg.vgg_16(img, num_classes=30, is_training=True)
-        # print(end_points)
-        vgg_last_conv = end_points["vgg_16/conv5/conv5_1"]
-        self.vgg_last_conv = vgg_last_conv
+WEIGHTS_PATH_NO_TOP = 'https://github.com/fchollet/deep-learning-models/releases/download/v0.1/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5'
 
-        # for restore weigths
-        vgg_variables_to_restore = slim.get_variables_to_restore(exclude=['fc6', 'fc7', 'fc8'])
-        self.restorer_cov = tf.train.Saver(vgg_variables_to_restore)
+anchor_box_scales = [128, 256, 512]
+anchor_box_ratio = [[1,1],[1,2],[2,1]]
 
-        print("vgg_last_conv", vgg_last_conv.get_shape())
-        conv3_3 = slim.conv2d(vgg_last_conv, 512, [3, 3], scope='conv3_3')
-        print("conv3_3", conv3_3.get_shape())
-        feature_map = tf.nn.relu(conv3_3, name="feature_map")
-        print("feature_map", conv3_3.get_shape())
+def vgg16(input_tensor):
+    # Block 1
+    x = Conv2D(64, (3, 3), activation='relu', padding='same', name='block1_conv1')(input_tensor)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same', name='block1_conv2')(x)
+    x = MaxPooling2D((2, 2), strides=(2, 2), name='block1_pool')(x)
 
-        #  ---- rpn reg
-        rpn_reg_conv = slim.conv2d(vgg_last_conv, 36, [1, 1], scope='rpn_reg_conv')
-        print("rpn_reg_conv", rpn_reg_conv.get_shape())
+    # Block 2
+    x = Conv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv1')(x)
+    x = Conv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv2')(x)
+    x = MaxPooling2D((2, 2), strides=(2, 2), name='block2_pool')(x)
 
-        #  the shape of the anchor box is [x, y, anchorId, xywh]
-        rpn_bbox_reg = tf.reshape(rpn_reg_conv,[floor(width/4), floor(hieght/4), 9, 4])
+    # Block 3
+    x = Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv1')(x)
+    x = Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv2')(x)
+    x = Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv3')(x)
+    x = MaxPooling2D((2, 2), strides=(2, 2), name='block3_pool')(x)
 
-        # ----- rpn class
-        rpn_cls_conv = slim.conv2d(vgg_last_conv, 18, [1,1], padding='SAME', name="rpn_cls_conv")
-        rpn_bbox_cls = tf.reshape(rpn_reg_conv,[floor(width/4), floor(hieght/4), 9, 2])
+    # Block 4
+    x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv1')(x)
+    x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv2')(x)
+    x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv3')(x)
+    x = MaxPooling2D((2, 2), strides=(2, 2), name='block4_pool')(x)
 
-        # ----- rpn poposal layer
-        # This layer do the selection of the anchor, output => [None, 4]
-        rpn_poposal_layer = tf.py_func(poposal_layer_func,[rpn_bbox_reg, rpn_bbox_cls], [tf.float32, tf.float32], tf.float32)
+    # Block 5
+    x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv1')(x)
+    x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv2')(x)
+    x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv3')(x)
+    
+    return x
 
-        # rcnn
-        # Each roi is 14X14X512
-        # output is None,None,14,14,512
-        poi_pooling = tf.py_func(roi_pooling_layer_func, [rpn_bbox_cls, rpn_poposal_layer], [ tf.float32, tf.float32])
-        fc6 = slim.fully_connected(poi_pooling, 4069, scope='fc/fc_6')
-        fc7 = slim.fully_connected(fc6, 4069, scope='fc/fc_7')
+def load_vgg_weights(model):
+    
+    weights_path = get_file('vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5',
+                            WEIGHTS_PATH_NO_TOP,
+                            cache_subdir='models')
+    
+    model.load_weights(weights_path,by_name=True)
+    
+    return model 
 
-        #rcnn cls
-        rcnn_cls_fc = slim.fully_connected(fc7, self.config.nb_classes, scope='rcnn_cls_fc')
-        rcnn_cls = tf.contrib.layers.softmax(rcnn_cls_fc)
 
-        #rcnn reg
-        #predict x,y,w,h
-        rcnn_reg_fc = slim.fully_connected(fc7, 4, scope='rcnn_reg_fc')
+def rpn(layer, num_anchors):
+    rpn_conv = Conv2D(512, (3, 1), activation='relu', name='rpn_conv_3x3', padding="same")(layer)
+    
+    rpn_class =  Conv2D(num_anchors, (1, 1), 
+                        activation='sigmoid', 
+                        name='rpn_class', 
+                        padding="same", 
+                        kernel_initializer='uniform')(rpn_conv)
+    
+    rpn_regr = Conv2D(num_anchors*4, (1, 1), 
+                      activation='linear', 
+                      name='rpn_regr', 
+                      padding="same", 
+                      kernel_initializer='zero')(rpn_conv)
+    
+    return rpn_class, rpn_regr, rpn_conv
 
-        # init. session
-        self.sess = tf.Session()
+class RoiPoolingLayer(Layer):
+    '''
+        pool out the selected anchor
+    '''
+    def __init__(self, convLayers, proposalLayer, **kwargs):
+        self.convLayers = convLayers
+        self.proposalLayer = proposalLayer
+        super(ProposalLayer, self).__init__(**kwargs)
+        
+    def build(self, input_shape):
+        super(MyLayer, self).build(input_shape)  
+        
+    def call(self,x):
+        pass
+    
+    def compute_output_shape(self, input_shape):
+        # return pooled rois
+        return (None, 7, 7, 3)
 
-    def initConvLayer(self):
-        self.restorer_cov.restore(self.sess, "/tmp/model.ckpt")
-        raise RuntimeError('Not yet implement error')
 
-    def initRandomRpn(self):
-        raise RuntimeError('Not yet implement error')
+class ProposalLayer(Layer):
+    '''
+        select the proposal that are valid
+    '''
+    def __init__(self,rpn_regr, rpn_conv, **kwargs):
+        self.rpn_regr = rpn_regr
+        self.rpn_conv = rpn_conv
+        super(ProposalLayer, self).__init__(**kwargs)
+        
+    def build(self, input_shape):
+        super(MyLayer, self).build(input_shape)  
+        
+    def call(self,x):
+        # ensure there are two input node to this layer
+        assert(len(x) == 2)
+        featureMap = x[0]
+        rois = x[1]
+        
+        # take top n proposal
+        print(rois.shape)
+        
+        # apply NMS
+        
+        # take top n proposal 
+        
+        
+        
+        pass
+    
+    def compute_output_shape(self, input_shape):
+        # return selected proposal
+        return (None, 4)
 
-    def trainRpn(self, generator):
-        raise RuntimeError('Not yet implement error')
+def rcnn(convLayers, rpn_regr, rpn_conv, nb_rois, nb_classes= 21, trainable=False):
+    #select roi that relavent 
+    proposalLayer = ProposalLayer(rpn_regr, rpn_conv)
+    # pass the heatmap and roi to roi pooling layer
+    roi_pooling = RoiPoolingLayer(convLayers, proposalLayer)
+    
+    x = Flatten()(roi_pooling)
+    x = Dense(4096, name="rcnn_fc6")(x)
+    x = Dense(4096, name="rcnn_fc7")(x)
+    cls_score = Dense(nb_rois, name="cls_score")(x)
+    cls_score = softmax(cls_score)
+    
+    bbox_pred = Dense(nb_rois * 4, name="bbox_pred")(x)
+    
+    return cls_score, bbox_pred
 
-    def saveRpn(self):
-        raise RuntimeError('Not yet implement error')
+TEST_FULL_IMG = mpimg.imread("test1.jpg")
+imgs = np.array([TEST_FULL_IMG])
 
-    def trainDetector(self):
-        raise RuntimeError('Not yet implement error')
+nb_anchors = len(anchor_box_scales) * len(anchor_box_ratio)
 
-    def saveDetector(self):
-        raise RuntimeError('Not yet implement error')
+print("imgs shape", imgs.shape)
 
-    def saveConv(self):
-        raise RuntimeError('Not yet implement error')
+img_input = Input(shape=(None,None,3))
 
-    def trainRpn(self):
-        raise RuntimeError('Not yet implement error')
+block5_conv3 = vgg16(input_tensor=img_input)
+rpn_class, rpn_regr, rpn_conv = rpn(block5_conv3,nb_anchors)
 
-    def save(self):
-        raise RuntimeError('Not yet implement error')
+cls_score, bbox_pred = rcnn(block5_conv3, rpn_regr, rpn_conv, 21, 21, trainable=True)
 
-    def load(self):
-        raise RuntimeError('Not yet implement error')
+rpn_model = Model(img_input, [rpn_regr,rpn_conv], name='rpn')
+fasterRcnn = Model(img_input, [cls_score, bbox_pred], name="fasterRcnn")
+model = load_vgg_weights(model)
 
-    def loadRpn(self):
-        raise RuntimeError('Not yet implement error')
 
-    def loadDetector(self):
-        raise RuntimeError('Not yet implement error')
-
-    def loadConv(self):
-        raise RuntimeError('Not yet implement error')
-
-    def predict(self):
-        '''
-            predict the bounding box and the class
-            Return:
-                [
-                    {
-                        classId: int,
-                        className: string,
-                        x: int,
-                        y: int,
-                        w: int,
-                        h: int
-                    },
-                    ...
-                ]
-        '''
-        # check the img. size and resize
-        raise RuntimeError('Not yet implement error')
-
-    def preview(self, img, predictedResult=[]):
-        '''
-            img: the rbg img
-            predictedResult: the result reutrn by predict
-        '''
-        raise RuntimeError('Not yet implement error')
-    def release(self):
-        self.sess.close()
+res = model.predict(imgs)
+print("res shape", res.shape)

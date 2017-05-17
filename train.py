@@ -4,16 +4,16 @@ from lib import ConfigObject
 from lib import FasterRcnn
 from voc_parser import get_data
 
-all_imgs, classes_count, class_mappingNameToId, class_mappingIdToName = get_data("./data")
+# all_imgs, classes_count, class_mappingNameToId, class_mappingIdToName = get_data("./data")
 
 # prepare generator
 # dataGenerator = DataGenerator()
 
-#configObject = ConfigObject.Config()
+configObject = ConfigObject.Config()
 #configObject.setModelPath(rpn="",conv="", detection="")
 #
-## create rastRcnnObject
-#fasterRcnn = FasterRcnn.FasterRcnn(configObject, train=True)
+# create rastRcnnObject
+fasterRcnn = FasterRcnn.FasterRcnn(configObject, train=True)
 #
 ## step 1 train RPN
 #fasterRcnn.initConvLayer("vgg16Path")
